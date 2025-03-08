@@ -1,34 +1,32 @@
 import os
 import requests
-from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ConversationHandler,
+    ContextTypes,
+)
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Fetch environment variables
+# Load environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-STUDENT_REGISTRATION_NUMBER = os.getenv("STUDENT_REGISTRATION_NUMBER")
-STUDENT_FIRST_NAME = os.getenv("STUDENT_FIRST_NAME")
 
-# Check if environment variables are set
-if not TELEGRAM_BOT_TOKEN or not STUDENT_REGISTRATION_NUMBER or not STUDENT_FIRST_NAME:
-    print("Missing environment variables.")
-    exit(1)
+# Define conversation states
+REGISTRATION_NUMBER, FIRST_NAME = range(2)
 
 # Headers to mimic a browser request
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Referer": "https://sw.ministry.et/",
-    "Origin": "https://sw.ministry.et"
+    "Origin": "https://sw.ministry.et",
 }
 
 # Function to fetch student data
 def fetch_student_data(registration_number, first_name):
     url = f"https://sw.ministry.et/student-result/{registration_number}?first_name={first_name}&qr="
-    
     try:
         response = requests.get(url, headers=HEADERS)
         response.raise_for_status()  # Raise an error for HTTP errors
@@ -39,12 +37,27 @@ def fetch_student_data(registration_number, first_name):
 
 # Command handler for /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Welcome! Use /student to fetch student data.")
+    await update.message.reply_text(
+        "Welcome! To fetch student data, please provide your registration number."
+    )
+    return REGISTRATION_NUMBER  # Move to the next state
 
-# Command handler for /student
-async def student(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Handler for registration number input
+async def get_registration_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Save the registration number
+    context.user_data["registration_number"] = update.message.text
+    await update.message.reply_text("Thank you! Now, please provide your first name.")
+    return FIRST_NAME  # Move to the next state
+
+# Handler for first name input
+async def get_first_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Save the first name
+    context.user_data["first_name"] = update.message.text
+
     # Fetch student data
-    student_data = fetch_student_data(STUDENT_REGISTRATION_NUMBER, STUDENT_FIRST_NAME)
+    registration_number = context.user_data["registration_number"]
+    first_name = context.user_data["first_name"]
+    student_data = fetch_student_data(registration_number, first_name)
 
     if student_data and "student" in student_data:
         student = student_data["student"]
@@ -59,7 +72,7 @@ async def student(update: Update, context: ContextTypes.DEFAULT_TYPE):
         Zone: {student.get("zone", "N/A")}
         Woreda: {student.get("woreda", "N/A")}
         """
-        
+
         if "courses" in student_data:
             output += "\n\n<b>Courses:</b>"
             for course in student_data["courses"]:
@@ -72,22 +85,42 @@ async def student(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 photo_response = requests.get(photo_url, headers=HEADERS)
                 photo_response.raise_for_status()  # Raise error for bad response
                 await update.message.reply_photo(photo_url, caption=output, parse_mode="HTML")
-                return
+                return ConversationHandler.END  # End the conversation
             except requests.exceptions.RequestException as e:
                 output += f"\n\nFailed to download the photo: {e}"
-        
+
         await update.message.reply_text(output, parse_mode="HTML")
     else:
         await update.message.reply_text("No data found or an error occurred.")
+
+    return ConversationHandler.END  # End the conversation
+
+# Handler to cancel the conversation
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Operation cancelled.")
+    return ConversationHandler.END
 
 # Main function to run the bot
 def main():
     # Create the Application
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Add command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("student", student))
+    # Define the conversation handler
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            REGISTRATION_NUMBER: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, get_registration_number)
+            ],
+            FIRST_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, get_first_name)
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    # Add the conversation handler to the application
+    application.add_handler(conv_handler)
 
     # Run the bot
     print("Bot is running...")
