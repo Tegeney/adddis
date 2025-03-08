@@ -2,17 +2,6 @@ import os
 import requests
 from PIL import Image
 from io import BytesIO
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get the bot token from the environment variable
-bot_token = os.getenv("BOT_TOKEN")
-
-if not bot_token:
-    print("Bot token is not set. Please set the BOT_TOKEN in your .env file.")
-    exit()
 
 def fetch_student_data(registration_number, first_name):
     # Construct the URL for fetching student data
@@ -46,9 +35,14 @@ def display_photo(photo_url):
     except IOError:
         print("Failed to open the image file.")
 
-# Input student registration number and first name
-registration_number = input("Enter the student's registration number: ")
-first_name = input("Enter the student's first name: ")
+# Fetch student registration number and first name from environment variables
+registration_number = os.getenv("STUDENT_REGISTRATION_NUMBER")
+first_name = os.getenv("STUDENT_FIRST_NAME")
+
+# Check if environment variables are set
+if not registration_number or not first_name:
+    print("Missing environment variables for student data.")
+    exit(1)
 
 # Fetch and display student data
 student_data = fetch_student_data(registration_number, first_name)
