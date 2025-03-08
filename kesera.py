@@ -12,9 +12,21 @@ from telegram.ext import (
 
 # Load environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+REGISTRATION_NUMBER = os.getenv("REGISTRATION_NUMBER")
+FIRST_NAME = os.getenv("FIRST_NAME")
+
+# Debugging: Print environment variables
+print("TELEGRAM_BOT_TOKEN:", TELEGRAM_BOT_TOKEN)
+print("REGISTRATION_NUMBER:", REGISTRATION_NUMBER)
+print("FIRST_NAME:", FIRST_NAME)
+
+# Check if environment variables are set
+if not TELEGRAM_BOT_TOKEN or not REGISTRATION_NUMBER or not FIRST_NAME:
+    print("Missing environment variables.")
+    exit(1)
 
 # Define conversation states
-REGISTRATION_NUMBER, FIRST_NAME = range(2)
+REGISTRATION_NUMBER_STATE, FIRST_NAME_STATE = range(2)
 
 # Headers to mimic a browser request
 HEADERS = {
@@ -40,14 +52,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Welcome! To fetch student data, please provide your registration number."
     )
-    return REGISTRATION_NUMBER  # Move to the next state
+    return REGISTRATION_NUMBER_STATE  # Move to the next state
 
 # Handler for registration number input
 async def get_registration_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Save the registration number
     context.user_data["registration_number"] = update.message.text
     await update.message.reply_text("Thank you! Now, please provide your first name.")
-    return FIRST_NAME  # Move to the next state
+    return FIRST_NAME_STATE  # Move to the next state
 
 # Handler for first name input
 async def get_first_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -109,10 +121,10 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            REGISTRATION_NUMBER: [
+            REGISTRATION_NUMBER_STATE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_registration_number)
             ],
-            FIRST_NAME: [
+            FIRST_NAME_STATE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_first_name)
             ],
         },
