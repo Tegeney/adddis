@@ -1,18 +1,13 @@
 import os
 import requests
-from flask import Flask, request
+from flask import Flask
 from dotenv import load_dotenv
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-
-# Get bot token from environment variable
-BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 # Fetch student registration number and first name from environment variables
 registration_number = os.getenv("STUDENT_REGISTRATION_NUMBER")
@@ -41,72 +36,47 @@ def fetch_student_data(registration_number, first_name):
         return response.json()  # Parse and return JSON data
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
-        if response is not None:
-            print("Response Text:", response.text)  # Debugging info
         return None
 
-# Command handler for /start
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Hello! Send a registration number and first name.")
-
-# Handle incoming text messages
-def handle_message(update: Update, context: CallbackContext):
-    text = update.message.text.split(" ")
-    if len(text) == 2:
-        registration_number, first_name = text
-        student_data = fetch_student_data(registration_number, first_name)
-
-        if student_data and "student" in student_data:
-            student = student_data["student"]
-
-            response = f"""
-            Student Information:
-            Name: {student.get("name", "N/A")}
-            Age: {student.get("age", "N/A")}
-            School: {student.get("school", "N/A")}
-            Gender: {student.get("gender", "N/A")}
-            Nationality: {student.get("nationality", "N/A")}
-            Language: {student.get("language", "N/A")}
-            Zone: {student.get("zone", "N/A")}
-            Woreda: {student.get("woreda", "N/A")}
-
-            Courses:
-            """
-            for course in student_data.get("courses", []):
-                response += f"- {course.get('name', 'N/A')}\n"
-
-            update.message.reply_text(response)
-
-            # Optionally download the student's photo
-            if "photo" in student:
-                photo_url = student["photo"]
-                try:
-                    photo_response = requests.get(photo_url, headers=HEADERS)
-                    photo_response.raise_for_status()  # Raise error for bad response
-                    with open(f"{first_name}_photo.jpeg", "wb") as f:
-                        f.write(photo_response.content)
-                    update.message.reply_text("\nPhoto downloaded successfully.")
-                except requests.exceptions.RequestException as e:
-                    update.message.reply_text("\nFailed to download the photo:", e)
-        else:
-            update.message.reply_text("No student data found.")
-    else:
-        update.message.reply_text("Invalid format! Send: `<registration_number> <first_name>`")
-
-# Main function to start the bot
-def main():
-    updater = Updater(BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    updater.start_polling()  # Use polling instead of webhook
-    updater.idle()
-
-# Home route to test Flask app
+# Define the route for the Flask app
 @app.route('/')
-def hello_world():
-    return 'Hello, World! Your Flask app is running.'
+def home():
+    # Fetch student data
+    student_data = fetch_student_data(registration_number, first_name)
 
-# Run the Flask app with Gunicorn for production
+    if student_data and "student" in student_data:
+        student = student_data["student"]
+        output = f"""
+        <h1>Student Information:</h1>
+        <p>Name: {student.get("name", "N/A")}</p>
+        <p>Age: {student.get("age", "N/A")}</p>
+        <p>School: {student.get("school", "N/A")}</p>
+        <p>Gender: {student.get("gender", "N/A")}</p>
+        <p>Nationality: {student.get("nationality", "N/A")}</p>
+        <p>Language: {student.get("language", "N/A")}</p>
+        <p>Zone: {student.get("zone", "N/A")}</p>
+        <p>Woreda: {student.get("woreda", "N/A")}</p>
+        """
+        
+        if "courses" in student_data:
+            output += "<h2>Courses:</h2><ul>"
+            for course in student_data["courses"]:
+                output += f"<li>{course.get('name', 'N/A')}</li>"
+            output += "</ul>"
+
+        # Optionally download the photo
+        if "photo" in student:
+            photo_url = student["photo"]
+            try:
+                photo_response = requests.get(photo_url, headers=HEADERS)
+                photo_response.raise_for_status()  # Raise error for bad response
+                output += f"<p>Photo downloaded successfully: {photo_url}</p>"
+            except requests.exceptions.RequestException as e:
+                output += f"<p>Failed to download the photo: {e}</p>"
+        return output
+    else:
+        return "No data found or an error occurred."
+
+# Run the app
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
