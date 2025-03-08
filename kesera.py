@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Function to fetch student data
 def fetch_student_data(registration_number, first_name):
     url = f"https://sw.ministry.et/student-result/{registration_number}?first_name={first_name}&qr="
-    
+
     # Headers to mimic a browser request
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -30,7 +30,7 @@ def home():
 @app.route('/student/<registration_number>/<first_name>')
 def get_student_info(registration_number, first_name):
     student_data = fetch_student_data(registration_number, first_name)
-    
+
     if student_data and "student" in student_data:
         student = student_data["student"]
         return f"""
@@ -49,6 +49,6 @@ def get_student_info(registration_number, first_name):
 
 if __name__ == '__main__':
     # Get the PORT environment variable, default to 5000 if not set
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))  # Ensure we are using the correct dynamic port
     # Make Flask listen on all available interfaces and the dynamic port
     app.run(host="0.0.0.0", port=port)
