@@ -6,16 +6,27 @@ from io import BytesIO
 def fetch_student_data(registration_number, first_name):
     # Construct the URL for fetching student data
     url = f"https://sw.ministry.et/student-result/{registration_number}?first_name={first_name}&qr="
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "application/json"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://sw.ministry.et/",
+        "Origin": "https://sw.ministry.et",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
     }
+
     try:
         # Make the GET request to fetch data
         response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Raises HTTPError for bad responses
-        data = response.json()  # Parse the JSON data
+        response.raise_for_status()  # Raises HTTPError for bad responses (403, 404, etc.)
+        
+        data = response.json()  # Parse JSON data
         return data
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP Error: {e}")
+        print(f"Response Text: {response.text}")  # Print server's response for debugging
+        return None
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
         return None
