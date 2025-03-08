@@ -1,6 +1,18 @@
+import os
 import requests
 from PIL import Image
 from io import BytesIO
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the bot token from the environment variable
+bot_token = os.getenv("BOT_TOKEN")
+
+if not bot_token:
+    print("Bot token is not set. Please set the BOT_TOKEN in your .env file.")
+    exit()
 
 def fetch_student_data(registration_number, first_name):
     # Construct the URL for fetching student data
